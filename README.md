@@ -48,3 +48,6 @@ Just simply run the html!
 
 ## 🧸 Contributing
 Thank you for considering contributing to this project. Every contribution will be carefully reviewed.
+
+## Try it out!
+https://vynx-solutions.github.io/solid-color-remover/main
