@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Color Remover</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .card {
+            width: 50%;
+            margin: auto;
+            margin-top: 50px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        #image-container {
+            position: relative;
+            width: 100%;
+            height: 300px;
+            border: 2px dashed #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: border-color 0.3s;
+        }
+        #image-container.dragover {
+            border-color: #007bff;
+        }
+        #image-container img {
+            max-width: 100%;
+            max-height: 100%;
+        }
+        .modal-dialog-centered {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: calc(100% - 1rem);
+        }
+        .custom-file-input {
+            display: none;
+        }
+        .custom-file-label {
+            display: inline-block;
+            margin-top: 10px;
+            cursor: pointer;
+        }
+        #image-container.choosing {
+            cursor: url('choosing.png'), auto;
+        }
+    </style>
+</head>
+<body class="d-flex align-items-center justify-content-center" style="height: 100vh;">
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">Image Color Remover</h5>
+            <div id="image-container">
+                <p id="placeholder-text">Drag and drop an image here or choose an image</p>
+                <img id="image" src="" alt="" style="display: none;">
+            </div>
+            <input type="text" id="color-input" class="form-control mt-3" placeholder="Color to remove (hex or rgb)">
+            <label for="file-input" class="btn btn-secondary custom-file-label">Choose File</label>
+            <input type="file" id="file-input" class="custom-file-input">
+            <label for="tolerance-slider" class="mt-3">Tolerance: <span id="tolerance-value">30</span></label>
+            <input type="range" id="tolerance-slider" class="form-control-range" min="0" max="100" value="30">
+            <button id="submit-button" class="btn btn-primary mt-3">Submit</button>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal fade" id="resultModal" tabindex="-1" aria-labelledby="resultModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="resultModalLabel">Processed Image</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body text-center">
+                    <img id="result-image" src="" alt="" class="img-fluid">
+                </div>
+                <div class="modal-footer">
+                    <button id="download-button" class="btn btn-success">Download</button>
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <!-- To lazy to use newer version of bootstrap -->
+    
+    <script>
+        const imageContainer = document.getElementById('image-container');
+        const image = document.getElementById('image');
+        const placeholderText = document.getElementById('placeholder-text');
+        const colorInput = document.getElementById('color-input');
+        const fileInput = document.getElementById('file-input');
+        const toleranceSlider = document.getElementById('tolerance-slider');
+        const toleranceValue = document.getElementById('tolerance-value');
+        const submitButton = document.getElementById('submit-button');
+        const resultModal = new bootstrap.Modal(document.getElementById('resultModal'));
+        const resultImage = document.getElementById('result-image');
+        const downloadButton = document.getElementById('download-button');
+
+        toleranceSlider.addEventListener('input', () => {
+            toleranceValue.textContent = toleranceSlider.value;
+        });
+
+        imageContainer.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            imageContainer.classList.add('dragover');
+        });
+
+        imageContainer.addEventListener('dragleave', () => {
+            imageContainer.classList.remove('dragover');
+        });
+
+        imageContainer.addEventListener('drop', (e) => {
+            e.preventDefault();
+            imageContainer.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    image.src = event.target.result;
+                    image.style.display = 'block';
+                    placeholderText.style.display = 'none';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    image.src = event.target.result;
+                    image.style.display = 'block';
+                    placeholderText.style.display = 'none';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        image.addEventListener('mousemove', () => {
+            imageContainer.classList.add('choosing');
+        });
+
+        image.addEventListener('mouseleave', () => {
+            imageContainer.classList.remove('choosing');
+        });
+
+        image.addEventListener('click', (e) => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = image.width;
+            canvas.height = image.height;
+            ctx.drawImage(image, 0, 0, image.width, image.height);
+            const pixel = ctx.getImageData(e.offsetX, e.offsetY, 1, 1).data;
+            const hexColor = `#${((1 << 24) + (pixel[0] << 16) + (pixel[1] << 8) + pixel[2]).toString(16).slice(1)}`;
+            colorInput.value = hexColor;
+        });
+
+        submitButton.addEventListener('click', () => {
+            const colorToRemove = colorInput.value;
+            if (!colorToRemove) return;
+
+            const tolerance = parseInt(toleranceSlider.value, 10);
+
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = image.width;
+            canvas.height = image.height;
+            ctx.drawImage(image, 0, 0, image.width, image.height);
+
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+
+            const [r, g, b] = hexToRgb(colorToRemove);
+
+            for (let i = 0; i < data.length; i += 4) {
+                if (isColorMatch(data[i], data[i + 1], data[i + 2], r, g, b, tolerance)) {
+                    data[i + 3] = 0;
+                }
+            }
+
+            ctx.putImageData(imageData, 0, 0);
+            const resultSrc = canvas.toDataURL();
+            resultImage.src = resultSrc;
+            resultModal.show();
+
+            downloadButton.onclick = () => {
+                const a = document.createElement('a');
+                a.href = resultSrc;
+                a.download = 'Removedbackground.png';
+                a.click();
+            };
+        });
+
+        function hexToRgb(hex) {
+            let r = 0, g = 0, b = 0;
+            if (hex.length === 4) {
+                r = parseInt(hex[1] + hex[1], 16);
+                g = parseInt(hex[2] + hex[2], 16);
+                b = parseInt(hex[3] + hex[3], 16);
+            } else if (hex.length === 7) {
+                r = parseInt(hex[1] + hex[2], 16);
+                g = parseInt(hex[3] + hex[4], 16);
+                b = parseInt(hex[5] + hex[6], 16);
+            }
+            return [r, g, b];
+        }
+
+        function isColorMatch(r1, g1, b1, r2, g2, b2, tolerance) {
+            return Math.abs(r1 - r2) <= tolerance &&
+                   Math.abs(g1 - g2) <= tolerance &&
+                   Math.abs(b1 - b2) <= tolerance;
+        }
+    </script>
+</body>
+</html>
